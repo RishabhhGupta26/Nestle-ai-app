@@ -224,6 +224,10 @@ detail_df["Groups"] = detail_df["Groups"].apply(lambda x: ast.literal_eval(x))
 
 st.subheader(f"📘 Top 50 Models for {OUTPUT_LABEL_MAP[selected_output]}")
 
+
+# REMOVE the Output_Index column if present
+detail_df = detail_df.drop(columns=["Output_Index"], errors="ignore")
+
 # FIX → Index from 1 to 50
 detail_df_display = detail_df.copy()
 detail_df_display.index = detail_df_display.index + 1
