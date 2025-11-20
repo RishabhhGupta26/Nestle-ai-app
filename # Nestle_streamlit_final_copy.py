@@ -261,102 +261,25 @@ if uploaded_file:
     st.success("Test file loaded.")
 
 # -------------------------
-# 
-# -------------------------
-# Prediction
+# PREDICT
 # -------------------------
 if st.button("🚀 Predict Now"):
-    # Run prediction and create the initial result table only once
+    if uploaded_file is None:
+        st.error("Upload test file first.")
+        st.stop()
+
     model = joblib.load(model_path)
+    y_train_ref = train_ref_groups["Outputs"].values[:, selected_output - 1]
 
-    y_train_ref = train_ref_groups["Outputs"].iloc[:, selected_output - 1].values
-
-    processed_test = preprocess_groups_for_prediction(
-        test_groups, train_ref_groups, y_train_ref, pls_components
-    )
+    processed_test = preprocess_groups_for_prediction(test_groups, train_ref_groups, y_train_ref, pls_comp)
 
     X = np.hstack([processed_test[g] for g in required_groups])
+
     y_pred = model.predict(X)
 
-    # Build table
-    result = pd.DataFrame({
-        "Sample Name": sample_names,
-        "Actual Value": actual_df.iloc[:, selected_output - 1].astype(float),
-        f"Predicted {OUTPUT_LABEL_MAP[selected_output]}": y_pred.astype(float)
-    })
+    out_df = pd.DataFrame({f"Predicted {OUTPUT_LABEL_MAP[selected_output]}": y_pred})
 
-    result["% Error"] = np.where(
-        result["Actual Value"] > 0,
-        np.abs(
-            (result["Actual Value"] -
-             result[f"Predicted {OUTPUT_LABEL_MAP[selected_output]}"])
-            / result["Actual Value"]
-        ) * 100,
-        np.nan
-    )
+    st.subheader("✅ Predictions")
+    st.dataframe(out_df)
 
-    # Store table in session_state
-    st.session_state["result_table"] = result
-
-
-# -------------------------
-# SHOW + EDIT TABLE (PERSISTENT)
-# -------------------------
-if "result_table" in st.session_state:
-
-    df_edit = st.session_state["result_table"].copy()
-
-    edited = st.data_editor(
-        df_edit,
-        hide_index=True,
-        num_rows="dynamic",
-        column_config={
-            "Sample Name": st.column_config.TextColumn(
-                "Sample Name",
-                disabled=True
-            ),
-            f"Predicted {OUTPUT_LABEL_MAP[selected_output]}": st.column_config.NumberColumn(
-                "Predicted",
-                disabled=True,
-                format="%.4f"
-            ),
-            "% Error": st.column_config.NumberColumn(
-                "% Error",
-                disabled=True,
-                format="%.3f"
-            ),
-            "Actual Value": st.column_config.NumberColumn(
-                "Actual Value (Editable)",
-                help="Enter your lab value; % Error will update",
-                step=0.01,
-                format="%.4f"
-            )
-        }
-    )
-
-    # LIVE RECALCULATION of error
-    edited["Actual Value"] = pd.to_numeric(edited["Actual Value"], errors="coerce")
-
-    edited["% Error"] = np.where(
-        edited["Actual Value"] > 0,
-        np.abs(
-            (edited["Actual Value"] -
-             edited[f"Predicted {OUTPUT_LABEL_MAP[selected_output]}"])
-            / edited["Actual Value"]
-        ) * 100,
-        np.nan
-    )
-
-    # Save UPDATE back to session_state
-    st.session_state["result_table"] = edited
-
-    # Show final table
-    st.write("### Final Results")
-    st.dataframe(edited, hide_index=True)
-
-    # Download
-    st.download_button(
-        "📥 Download Results",
-        edited.to_csv(index=False).encode("utf-8"),
-        file_name="Predictions.csv"
-    )
+    st.download_button("📥 Download Predictions CSV", out_df.to_csv(index=False), file_name="predictions.csv")

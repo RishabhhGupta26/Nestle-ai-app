@@ -1,6 +1,6 @@
 # Nestle_streamlit_final.py
 # -------------------------------------------
-# Nestlé AI Model Prediction System (Top50 final - Deploy Ready)
+# Nestlé AI Model Prediction System (Top50 final)
 # -------------------------------------------
 
 import streamlit as st
@@ -16,10 +16,9 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # -------------------------
-# CONFIGURATION (STREAMLIT + GITHUB DEPLOY SAFE)
+# CONFIGURATION
 # -------------------------
-# Base directory = folder where this .py file is located
-BASE = Path(__file__).resolve().parent
+BASE = Path("C:/Users/risha/projectFinal")
 
 PASSWORD = "Nestle@123"
 
@@ -78,8 +77,8 @@ def numericize_and_fill(df):
     df_num = df.copy()
     for c in df_num.columns:
         df_num[c] = pd.to_numeric(df_num[c], errors='coerce')
-    medians = df_num.median(numeric_only=True)
-    return df_num.fillna(medians)
+    df_num = df_num.fillna(df_num.median(numeric_only=True))
+    return df_num
 
 def safe_get_cols_by_index(df_cols, indices):
     names = []
@@ -92,62 +91,52 @@ def adjusted_index(i):
     return i - 1
 
 # -------------------------
-# SPLIT INTO GROUPS
+# SPLIT GROUPS
 # -------------------------
 def split_into_groups(df):
     df = df.copy()
     df.columns = [str(c) for c in df.columns]
     cols = list(df.columns)
 
-    # Outputs detection
     try:
-        orig_outputs = [1, 2, 3, 49]
-        adj = [adjusted_index(i) for i in orig_outputs]
-        output_cols = safe_get_cols_by_index(cols, adj)
-
+        orig_idx = [1, 2, 3, 49]
+        adj_idx = [adjusted_index(i) for i in orig_idx]
+        output_cols = safe_get_cols_by_index(cols, adj_idx)
         if len(output_cols) != 4:
-            output_cols = [c for c in cols if any(k in c.lower() for k in ["filtration", "leaching", "yield", "starch"])]
+            output_cols = [c for c in cols if any(k in c.lower() for k in ["filtration","leaching","yield","starch"])]
     except:
-        output_cols = [c for c in cols if any(k in c.lower() for k in ["filtration", "leaching", "yield", "starch"])]
+        output_cols = [c for c in cols if any(k in c.lower() for k in ["filtration","leaching","yield","starch"])]
 
     if len(output_cols) != 4:
-        st.warning("Unable to detect output columns. Select manually.")
-        ch = st.multiselect("Select 4 output columns", cols)
-        if len(ch) != 4:
+        st.warning("Select 4 output columns manually")
+        selected = st.multiselect("Select 4 output columns", cols)
+        if len(selected) != 4:
             st.stop()
-        output_cols = ch
+        output_cols = selected
 
-    # Group slices
     def slice_to_names(s):
-        start = adjusted_index(s.start) if s.start is not None else 0
-        stop = adjusted_index(s.stop) if s.stop is not None else len(cols)
+        start = adjusted_index(s.start) if s.start else 0
+        stop = adjusted_index(s.stop) if s.stop else len(cols)
         return safe_get_cols_by_index(cols, list(range(start, stop)))
 
-    A1_cols = slice_to_names(slice(4, 12)) + slice_to_names(slice(15, 28))
-    C1_cols = slice_to_names(slice(12, 15))
-    B1_cols = slice_to_names(slice(28, 47))
-    E1_cols = slice_to_names(slice(47, 50))
-    E2_cols = slice_to_names(slice(50, 53))
-    NIR_cols = slice_to_names(slice(54, None))
-
-    return {
+    groups = {
         "Outputs": df[output_cols],
-        "A1": df[A1_cols] if A1_cols else pd.DataFrame(index=df.index),
-        "C1": df[C1_cols] if C1_cols else pd.DataFrame(index=df.index),
-        "B1": df[B1_cols] if B1_cols else pd.DataFrame(index=df.index),
-        "E1": df[E1_cols] if E1_cols else pd.DataFrame(index=df.index),
-        "E2": df[E2_cols] if E2_cols else pd.DataFrame(index=df.index),
-        "NIR": df[NIR_cols] if NIR_cols else pd.DataFrame(index=df.index),
+        "A1": df[slice_to_names(slice(4,12)) + slice_to_names(slice(15,28))],
+        "C1": df[slice_to_names(slice(12,15))],
+        "B1": df[slice_to_names(slice(28,47))],
+        "E1": df[slice_to_names(slice(47,50))],
+        "E2": df[slice_to_names(slice(50,53))],
+        "NIR": df[slice_to_names(slice(54,None))]
     }
+    return groups
 
 # -------------------------
 # PREPROCESSING
 # -------------------------
-def preprocess_groups_for_prediction(groups, train_groups, y_ref, n_comp):
+def preprocess_groups_for_prediction(groups, reference_train, y_reference, n_components):
     processed = {}
-
-    for g in [x for x in groups if x not in ["NIR", "Outputs"]]:
-        X_ref = numericize_and_fill(train_groups[g])
+    for g in [x for x in groups if x not in ["NIR","Outputs"]]:
+        X_ref = numericize_and_fill(reference_train[g])
         X_test = numericize_and_fill(groups[g])
 
         scaler = RobustScaler()
@@ -155,20 +144,17 @@ def preprocess_groups_for_prediction(groups, train_groups, y_ref, n_comp):
 
         scaler.fit(X_ref.values)
         pt.fit(scaler.transform(X_ref.values))
-
         processed[g] = pt.transform(scaler.transform(X_test.values))
 
-    nir_train = numericize_and_fill(train_groups["NIR"]).values
+    nir_train = numericize_and_fill(reference_train["NIR"]).values
     nir_test = numericize_and_fill(groups["NIR"]).values
 
-    if nir_train.size == 0 or nir_test.size == 0:
-        processed["NIR"] = np.zeros((len(list(groups.values())[0].index), 1))
+    if nir_train.size == 0:
+        processed["NIR"] = np.zeros((len(groups["Outputs"]),1))
     else:
-        comp = min(n_comp, nir_train.shape[1], max(1, nir_train.shape[0] - 1))
-        pls = PLSRegression(n_components=comp)
-        y_use = y_ref if y_ref.ndim == 1 else y_ref[:, 0]
-        pls.fit(nir_train, y_use)
-
+        n_comp = min(n_components, nir_train.shape[1], max(1,nir_train.shape[0]-1))
+        pls = PLSRegression(n_components=n_comp)
+        pls.fit(nir_train, y_reference)
         nir_train_s = pls.transform(nir_train)
         nir_test_s = pls.transform(nir_test)
 
@@ -176,92 +162,81 @@ def preprocess_groups_for_prediction(groups, train_groups, y_ref, n_comp):
         pt = PowerTransformer(method="yeo-johnson", standardize=False)
         scaler.fit(nir_train_s)
         pt.fit(scaler.transform(nir_train_s))
-
         processed["NIR"] = pt.transform(scaler.transform(nir_test_s))
 
     return processed
 
 # -------------------------
-# LOAD TRAINING REF
+# LOAD TRAINING
 # -------------------------
-try:
-    train_ref_df = pd.read_excel(TRAIN_REFERENCE_FILE, sheet_name=TRAIN_SHEET)
-except Exception as e:
-    st.error(f"Failed to read training file: {e}")
-    st.stop()
-
+train_ref_df = pd.read_excel(TRAIN_REFERENCE_FILE, sheet_name=TRAIN_SHEET)
 train_ref_df = drop_first_column(train_ref_df)
 train_ref_df = numericize_and_fill(train_ref_df)
 train_ref_groups = split_into_groups(train_ref_df)
 
 # -------------------------
-# SELECT OUTPUT PROPERTY
+# OUTPUT SELECTION
 # -------------------------
-selected_output = st.selectbox("🎯 Select Output", [1, 2, 3, 4], format_func=lambda x: OUTPUT_LABEL_MAP[x])
+selected_output = st.selectbox("🎯 Select Output", [1,2,3,4], format_func=lambda x: OUTPUT_LABEL_MAP[x])
 output_name = OUTPUT_NAME_MAP[selected_output]
-pls_comp = PLS_COMPONENTS_MAP[selected_output]
+pls_components = PLS_COMPONENTS_MAP[selected_output]
 
 # -------------------------
-# LOAD TOP50 DETAILS
+# TOP50 DETAILS
 # -------------------------
 detail_file = OUTPUT_DETAILS_DIR / f"{output_name}_Detailed_Results.xlsx"
 detail_df = pd.read_excel(detail_file, sheet_name="Top50_R2")
 detail_df["Groups"] = detail_df["Groups"].apply(lambda x: ast.literal_eval(x))
 
-# ⭐ Convert MAPE values to percentage AND rename column
-if "Test_MAPE" in detail_df.columns:
-    detail_df["Test_MAPE"] = detail_df["Test_MAPE"] * 100
-    detail_df = detail_df.rename(columns={"Test_MAPE": "Test_MAPE (% error)"})
+st.dataframe(detail_df)
 
-st.subheader(f"📘 Top 50 Models for {OUTPUT_LABEL_MAP[selected_output]}")
-
-
-# REMOVE the Output_Index column if present
-detail_df = detail_df.drop(columns=["Output_Index"], errors="ignore")
-
-# FIX → Index from 1 to 50
-detail_df_display = detail_df.copy()
-detail_df_display.index = detail_df_display.index + 1
-
-st.dataframe(detail_df_display)
-
-# Select Rank (1–50)
-selected_rank = st.selectbox("Select Model Rank", list(range(1, len(detail_df) + 1)))
-
-required_groups = detail_df.iloc[selected_rank - 1]["Groups"]
-selected_model_name = detail_df.iloc[selected_rank - 1]["Model"]
-
+selected_rank = st.selectbox("Select Rank", list(range(1,len(detail_df)+1)))
+required_groups = detail_df.iloc[selected_rank-1]["Groups"]
+selected_model_name = detail_df.iloc[selected_rank-1]["Model"]
 
 model_folder = MODELS_DIR / f"{output_name}_Top50_R2"
 model_path = list(model_folder.glob(f"{selected_rank:02d}_{selected_model_name}_R2_*.pkl"))[0]
 
-st.success(f"Selected model: Rank {selected_rank} — {selected_model_name}")
-
 # -------------------------
-# FEATURE IMPORTANCE
+# FEATURE IMPORTANCE  ✅ FIXED
 # -------------------------
 st.subheader("📊 Feature Importance")
+
 feature_img = FEATURE_IMPORTANCE_DIR / output_name / f"{selected_rank:02d}_{selected_model_name}_importance.png"
 if feature_img.exists():
     st.image(str(feature_img), use_column_width=True)
+else:
+    st.info("Feature importance not available for this model.")
 
 # -------------------------
-# TEST FILE UPLOAD
+# Upload Test File
 # -------------------------
-uploaded_file = st.file_uploader("📁 Upload Testing Excel File", type=["xlsx"])
+uploaded_file = st.file_uploader("Upload Test Excel", type=["xlsx"])
+test_df = None
+sample_names = None
+actual_df = None
+
 if uploaded_file:
     xls = pd.ExcelFile(uploaded_file)
     sheet = st.selectbox("Select Sheet", xls.sheet_names)
-    test_df = pd.read_excel(xls, sheet_name=sheet)
 
-    test_df = drop_first_column(test_df)
+    test_df_raw = pd.read_excel(xls, sheet_name=sheet)
+
+    sample_names = test_df_raw.iloc[:,0].astype(str).tolist()
+
+    actual_cols = []
+    for idx in [1,2,3,49]:
+        try:
+            actual_cols.append(test_df_raw.iloc[:,idx])
+        except:
+            actual_cols.append(pd.Series([np.nan]*len(test_df_raw)))
+
+    actual_df = pd.concat(actual_cols, axis=1)
+    actual_df.columns = ["Actual1","Actual2","Actual3","Actual4"]
+
+    test_df = drop_first_column(test_df_raw)
     test_df = numericize_and_fill(test_df)
     test_groups = split_into_groups(test_df)
-
-    st.success("Test file loaded.")
-
-# -------------------------
-# 
 # -------------------------
 # Prediction
 # -------------------------
