@@ -5,3 +5,4 @@ scikit-learn
 joblib
 openpyxl
 pillow
+xgboost==1.7.6
