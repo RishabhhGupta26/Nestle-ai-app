@@ -1,6 +1,6 @@
 # Nestle_streamlit_final.py
 # -------------------------------------------
-# Nestlé AI Model Prediction System (Top50 final - Deploy Ready)
+# Nestlé AI Model Prediction System (Top50 final)
 # -------------------------------------------
 
 import streamlit as st
@@ -16,9 +16,8 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # -------------------------
-# CONFIGURATION (STREAMLIT + GITHUB DEPLOY SAFE)
+# CONFIGURATION
 # -------------------------
-# Base directory = folder where this .py file is located
 BASE = Path(__file__).resolve().parent
 
 PASSWORD = "Nestle@123"
