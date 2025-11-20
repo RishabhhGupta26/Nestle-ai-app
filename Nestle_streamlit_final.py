@@ -184,15 +184,35 @@ pls_components = PLS_COMPONENTS_MAP[selected_output]
 # -------------------------
 # TOP50 DETAILS
 # -------------------------
+# -------------------------
+# TOP50 DETAILS  ✅ FULLY FIXED
+# -------------------------
 detail_file = OUTPUT_DETAILS_DIR / f"{output_name}_Detailed_Results.xlsx"
 detail_df = pd.read_excel(detail_file, sheet_name="Top50_R2")
+
+# Convert "Groups" string → actual Python list
 detail_df["Groups"] = detail_df["Groups"].apply(lambda x: ast.literal_eval(x))
 
+# --- Fix 2: Remove Output_Index column ---
+detail_df = detail_df.drop(columns=["Output_Index"], errors="ignore")
+
+# --- Fix 3: Convert MAPE to % and rename ---
+if "Test_MAPE" in detail_df.columns:
+    detail_df["Test_MAPE"] = detail_df["Test_MAPE"] * 100
+    detail_df = detail_df.rename(columns={"Test_MAPE": "Test_MAPE (% error)"})
+
+# --- Fix 1: Set index to 1–50 instead of 0–49 ---
+detail_df.index = detail_df.index + 1
+
+# Show fixed table
+st.subheader(f"📘 Top 50 Models for {OUTPUT_LABEL_MAP[selected_output]}")
 st.dataframe(detail_df)
 
-selected_rank = st.selectbox("Select Rank", list(range(1,len(detail_df)+1)))
-required_groups = detail_df.iloc[selected_rank-1]["Groups"]
-selected_model_name = detail_df.iloc[selected_rank-1]["Model"]
+# Rank selection (uses new 1–50 index)
+selected_rank = st.selectbox("Select Rank", detail_df.index.tolist())
+
+required_groups = detail_df.loc[selected_rank, "Groups"]
+selected_model_name = detail_df.loc[selected_rank, "Model"]
 
 model_folder = MODELS_DIR / f"{output_name}_Top50_R2"
 model_path = list(model_folder.glob(f"{selected_rank:02d}_{selected_model_name}_R2_*.pkl"))[0]
