@@ -202,6 +202,20 @@ output_name = OUTPUT_NAME_MAP[selected_output]
 pls_comp = PLS_COMPONENTS_MAP[selected_output]
 
 # -------------------------
+# # LOAD TOP50 DETAILS
+# # -------------------------
+# detail_file = OUTPUT_DETAILS_DIR / f"{output_name}_Detailed_Results.xlsx"
+# detail_df = pd.read_excel(detail_file, sheet_name="Top50_R2")
+# detail_df["Groups"] = detail_df["Groups"].apply(lambda x: ast.literal_eval(x))
+
+# st.subheader(f"📘 Top 50 Models for {OUTPUT_LABEL_MAP[selected_output]}")
+# st.dataframe(detail_df)
+
+# selected_rank = st.selectbox("Select Model Rank", list(range(1, len(detail_df) + 1)))
+# required_groups = detail_df.iloc[selected_rank - 1]["Groups"]
+# selected_model_name = detail_df.iloc[selected_rank - 1]["Model"]
+
+# -------------------------
 # LOAD TOP50 DETAILS
 # -------------------------
 detail_file = OUTPUT_DETAILS_DIR / f"{output_name}_Detailed_Results.xlsx"
@@ -209,11 +223,19 @@ detail_df = pd.read_excel(detail_file, sheet_name="Top50_R2")
 detail_df["Groups"] = detail_df["Groups"].apply(lambda x: ast.literal_eval(x))
 
 st.subheader(f"📘 Top 50 Models for {OUTPUT_LABEL_MAP[selected_output]}")
-st.dataframe(detail_df)
 
+# FIX → Index from 1 to 50
+detail_df_display = detail_df.copy()
+detail_df_display.index = detail_df_display.index + 1
+
+st.dataframe(detail_df_display)
+
+# Select Rank (1–50)
 selected_rank = st.selectbox("Select Model Rank", list(range(1, len(detail_df) + 1)))
+
 required_groups = detail_df.iloc[selected_rank - 1]["Groups"]
 selected_model_name = detail_df.iloc[selected_rank - 1]["Model"]
+
 
 model_folder = MODELS_DIR / f"{output_name}_Top50_R2"
 model_path = list(model_folder.glob(f"{selected_rank:02d}_{selected_model_name}_R2_*.pkl"))[0]
