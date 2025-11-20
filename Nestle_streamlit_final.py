@@ -208,9 +208,10 @@ detail_file = OUTPUT_DETAILS_DIR / f"{output_name}_Detailed_Results.xlsx"
 detail_df = pd.read_excel(detail_file, sheet_name="Top50_R2")
 detail_df["Groups"] = detail_df["Groups"].apply(lambda x: ast.literal_eval(x))
 
-# ⭐ Convert MAPE values to percentage
+# ⭐ Convert MAPE values to percentage AND rename column
 if "Test_MAPE" in detail_df.columns:
     detail_df["Test_MAPE"] = detail_df["Test_MAPE"] * 100
+    detail_df = detail_df.rename(columns={"Test_MAPE": "Test_MAPE (% error)"})
 
 st.subheader(f"📘 Top 50 Models for {OUTPUT_LABEL_MAP[selected_output]}")
 
