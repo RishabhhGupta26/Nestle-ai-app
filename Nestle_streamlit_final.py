@@ -202,25 +202,15 @@ output_name = OUTPUT_NAME_MAP[selected_output]
 pls_comp = PLS_COMPONENTS_MAP[selected_output]
 
 # -------------------------
-# # LOAD TOP50 DETAILS
-# # -------------------------
-# detail_file = OUTPUT_DETAILS_DIR / f"{output_name}_Detailed_Results.xlsx"
-# detail_df = pd.read_excel(detail_file, sheet_name="Top50_R2")
-# detail_df["Groups"] = detail_df["Groups"].apply(lambda x: ast.literal_eval(x))
-
-# st.subheader(f"📘 Top 50 Models for {OUTPUT_LABEL_MAP[selected_output]}")
-# st.dataframe(detail_df)
-
-# selected_rank = st.selectbox("Select Model Rank", list(range(1, len(detail_df) + 1)))
-# required_groups = detail_df.iloc[selected_rank - 1]["Groups"]
-# selected_model_name = detail_df.iloc[selected_rank - 1]["Model"]
-
-# -------------------------
 # LOAD TOP50 DETAILS
 # -------------------------
 detail_file = OUTPUT_DETAILS_DIR / f"{output_name}_Detailed_Results.xlsx"
 detail_df = pd.read_excel(detail_file, sheet_name="Top50_R2")
 detail_df["Groups"] = detail_df["Groups"].apply(lambda x: ast.literal_eval(x))
+
+# ⭐ Convert MAPE values to percentage
+if "Test_MAPE" in detail_df.columns:
+    detail_df["Test_MAPE"] = detail_df["Test_MAPE"] * 100
 
 st.subheader(f"📘 Top 50 Models for {OUTPUT_LABEL_MAP[selected_output]}")
 
